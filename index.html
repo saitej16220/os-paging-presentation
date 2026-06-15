@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paging in Operating Systems | BCA Semester II</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0e1a;
+      --surface:   #111827;
+      --card:      #1a2235;
+      --border:    #1e2d45;
+      --accent1:   #6366f1;
+      --accent2:   #22d3ee;
+      --accent3:   #f472b6;
+      --green:     #34d399;
+      --red:       #f87171;
+      --text:      #e2e8f0;
+      --muted:     #94a3b8;
+      --white:     #ffffff;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    .deck { width: 100%; height: 100vh; position: relative; }
+
+    .slide {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 60px;
+      opacity: 0;
+      transform: translateX(60px) scale(0.97);
+      transition: opacity .55s cubic-bezier(.4,0,.2,1),
+                  transform .55s cubic-bezier(.4,0,.2,1);
+      pointer-events: none;
+    }
+    .slide.active {
+      opacity: 1; transform: translateX(0) scale(1); pointer-events: all;
+    }
+    .slide.exit {
+      opacity: 0; transform: translateX(-60px) scale(0.97);
+    }
+
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(99,102,241,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,102,241,.06) 1px, transparent 1px);
+      background-size: 48px 48px;
+      animation: gridShift 20s linear infinite;
+    }
+    @keyframes gridShift {
+      0%   { background-position: 0 0; }
+      100% { background-position: 48px 48px; }
+    }
+
+    .orb {
+      position: fixed; border-radius: 50%;
+      filter: blur(90px); opacity: .35; z-index: 0;
+      animation: float 8s ease-in-out infinite;
+    }
+    .orb-1 { width:480px; height:480px; background:var(--accent1); top:-160px; left:-160px; }
+    .orb-2 { width:360px; height:360px; background:var(--accent2); bottom:-100px; right:-100px; animation-delay:3s; }
+    .orb-3 { width:280px; height:280px; background:var(--accent3); top:40%; left:55%; animation-delay:5s; }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-28px); }
+    }
+
+    .slide-inner { position: relative; z-index: 2; width: 100%; max-width: 1200px; }
+
+    /* Nav */
+    .nav {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 16px; z-index: 100;
+      background: rgba(17,24,39,.8); border: 1px solid var(--border);
+      backdrop-filter: blur(20px); border-radius: 60px; padding: 10px 24px;
+    }
+    .nav-btn {
+      width: 42px; height: 42px; border-radius: 50%;
+      border: 1.5px solid var(--border); background: var(--card);
+      color: var(--text); font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .25s;
+    }
+    .nav-btn:hover { background: var(--accent1); border-color: var(--accent1); transform: scale(1.1); }
+    .dot-row { display: flex; gap: 8px; align-items: center; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border); cursor: pointer; transition: all .3s;
+    }
+    .dot.active { background: var(--accent1); width: 24px; border-radius: 4px; }
+    .slide-counter { font-size: 13px; color: var(--muted); min-width: 40px; text-align: center; }
+
+    .hint {
+      position: fixed; top: 20px; right: 28px;
+      font-size: 12px; color: var(--muted); z-index: 100;
+    }
+    .hint kbd {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 4px; padding: 2px 6px; font-family: 'Fira Code', monospace;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+      transition: width .4s ease; z-index: 200;
+    }
+
+    /* ── Shared ── */
+    .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, rgba(99,102,241,.25), rgba(34,211,238,.15));
+      border: 1px solid rgba(99,102,241,.5); color: var(--accent2);
+      font-size: 13px; font-weight: 600; padding: 6px 18px; border-radius: 40px;
+      letter-spacing: .5px; margin-bottom: 28px; backdrop-filter: blur(8px);
+    }
+    .slide-header { text-align: center; margin-bottom: 32px; }
+    .slide-number { font-size: 12px; font-weight: 600; color: var(--accent1); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+    .slide-title {
+      font-size: clamp(26px, 3.5vw, 46px); font-weight: 800;
+      background: linear-gradient(135deg, #fff, var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .slide-sub { font-size: 15px; color: var(--muted); margin-top: 6px; }
+
+    .info-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 18px; padding: 24px; position: relative; overflow: hidden;
+      transition: transform .3s, border-color .3s;
+    }
+    .info-card:hover { transform: translateY(-4px); border-color: var(--accent1); }
+    .info-card::before {
+      content: ''; position: absolute; top: 0; left: 0;
+      width: 100%; height: 3px;
+      background: linear-gradient(90deg, var(--accent1), var(--accent2));
+    }
+    .card-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 14px;
+    }
+    .icon-purple { background: rgba(99,102,241,.2); }
+    .icon-cyan   { background: rgba(34,211,238,.2); }
+    .icon-pink   { background: rgba(244,114,182,.2); }
+    .icon-green  { background: rgba(52,211,153,.2); }
+    .card-title  { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 10px; }
+
+    .goal-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .goal-list li {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13.5px; color: var(--muted); line-height: 1.5;
+    }
+    .goal-list li .bullet {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: white; margin-top: 1px;
+    }
+    .def-box {
+      background: linear-gradient(135deg, rgba(99,102,241,.1), rgba(34,211,238,.05));
+      border: 1px solid rgba(99,102,241,.35); border-radius: 14px;
+      padding: 20px 24px; font-size: 14px; color: var(--text);
+      line-height: 1.7; margin-bottom: 24px;
+    }
+
+    .adv-item {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.2);
+      border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--text);
+    }
+    .dis-item {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.2);
+      border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--text);
+    }
+
+    /* ── SLIDE 1 ── */
+    .title-main {
+      font-size: clamp(36px, 5vw, 68px); font-weight: 800; line-height: 1.1;
+      background: linear-gradient(135deg, #fff 30%, var(--accent2) 70%, var(--accent1));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+    }
+    .title-sub { font-size: 16px; color: var(--muted); margin-bottom: 40px; }
+    .presenter-card {
+      display: inline-flex; flex-direction: column; align-items: center;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 24px 48px; gap: 6px;
+    }
+    .presenter-card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .presenter-card .name  { font-size: 22px; font-weight: 700; color: var(--white); }
+    .presenter-card .info  { font-size: 13px; color: var(--accent2); font-weight: 500; }
+    .os-chips { display: flex; gap: 12px; justify-content: center; margin-top: 32px; flex-wrap: wrap; }
+    .chip {
+      background: linear-gradient(135deg, rgba(99,102,241,.2), rgba(34,211,238,.1));
+      border: 1px solid rgba(99,102,241,.4); border-radius: 40px; padding: 8px 20px;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+    /* ── SLIDE 2 ── */
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+    /* ── SLIDE 3 ── */
+    .paging-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+    .page-visual { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .page-box {
+      height: 52px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; border: 1px solid;
+      position: relative; overflow: hidden; line-height: 1.4; text-align: center;
+    }
+    .page-box::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,.05), transparent);
+    }
+    .pg-1 { background: rgba(99,102,241,.2); border-color: rgba(99,102,241,.5); color: var(--accent1); }
+    .pg-2 { background: rgba(34,211,238,.2); border-color: rgba(34,211,238,.5); color: var(--accent2); }
+    .pg-3 { background: rgba(244,114,182,.2); border-color: rgba(244,114,182,.5); color: var(--accent3); }
+    .pg-4 { background: rgba(52,211,153,.2); border-color: rgba(52,211,153,.5); color: var(--green); }
+    .pg-5 { background: rgba(251,191,36,.2); border-color: rgba(251,191,36,.5); color: #fbbf24; }
+    .pg-6 { background: rgba(167,139,250,.2); border-color: rgba(167,139,250,.5); color: #a78bfa; }
+    .adv-dis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── SLIDE 4 ── */
+    .vm-card {
+      background: linear-gradient(135deg, rgba(99,102,241,.15), rgba(34,211,238,.08));
+      border: 1px solid rgba(99,102,241,.4); border-radius: 20px; padding: 24px; margin-bottom: 20px;
+    }
+    .vm-title { font-size: 18px; font-weight: 700; color: var(--white); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .vm-diagram { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .vm-block {
+      flex: 1; min-width: 90px; height: 60px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; text-align: center; border: 1px solid;
+    }
+    .vm-ram  { background: rgba(99,102,241,.2); border-color: rgba(99,102,241,.5); color: var(--accent1); }
+    .vm-disk { background: rgba(34,211,238,.2); border-color: rgba(34,211,238,.5); color: var(--accent2); }
+    .vm-swap { background: rgba(244,114,182,.2); border-color: rgba(244,114,182,.5); color: var(--accent3); font-size: 20px; }
+
+    .conc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .conc-item {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 18px; display: flex; gap: 12px; align-items: flex-start;
+    }
+    .conc-num {
+      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: white;
+    }
+    .conc-text { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    .thank-you {
+      text-align: center; padding: 20px;
+      background: linear-gradient(135deg, rgba(99,102,241,.1), rgba(34,211,238,.05));
+      border: 1px solid rgba(99,102,241,.3); border-radius: 20px; margin-top: 16px;
+    }
+    .thank-you h2 {
+      font-size: 28px; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2), var(--accent3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .thank-you p { color: var(--muted); font-size: 14px; margin-top: 8px; }
+
+    @media (max-width: 780px) {
+      .slide { padding: 24px 20px 90px; }
+      .paging-grid, .three-col, .adv-dis-grid, .conc-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+<div class="bg-grid"></div>
+<div class="progress-bar" id="progress"></div>
+<div class="hint">Use <kbd>←</kbd> <kbd>→</kbd> arrow keys or click</div>
+
+<div class="deck" id="deck">
+
+  <!-- ════════ SLIDE 1 — TITLE ════════ -->
+  <div class="slide active" id="slide-1">
+    <div class="slide-inner" style="text-align:center">
+      <div class="badge">📚 BCA Semester II &nbsp;·&nbsp; Operating Systems</div>
+      <h1 class="title-main">Paging in<br/>Operating Systems</h1>
+      <p class="title-sub">Memory Management Technique — How Paging Works</p>
+      <div class="presenter-card">
+        <span class="label">Presented By</span>
+        <span class="name">Sunaina &amp; Zainab</span>
+        <span class="info">BCA Sem II &nbsp;·&nbsp; Subject: Operating Systems</span>
+      </div>
+      <div class="os-chips">
+        <div class="chip"><div class="chip-dot"></div> Memory Management</div>
+        <div class="chip"><div class="chip-dot"></div> Paging</div>
+        <div class="chip"><div class="chip-dot"></div> Page Tables</div>
+        <div class="chip"><div class="chip-dot"></div> Virtual Memory</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 2 — MEMORY MANAGEMENT ════════ -->
+  <div class="slide" id="slide-2">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="slide-number">02 / Introduction</div>
+        <h2 class="slide-title">Memory Management</h2>
+        <p class="slide-sub">Why is it important and what does it do?</p>
+      </div>
+
+      <div class="def-box">
+        💡 <strong>Memory Management</strong> is the process of managing computer memory efficiently so that multiple programs can run simultaneously without conflicts or wastage.
+      </div>
+
+      <div class="three-col">
+        <div class="info-card">
+          <div class="card-icon icon-purple">🎯</div>
+          <div class="card-title">Goals</div>
+          <ul class="goal-list">
+            <li><div class="bullet">✓</div>Efficient memory utilization</li>
+            <li><div class="bullet">✓</div>Faster program execution</li>
+            <li><div class="bullet">✓</div>Support multitasking</li>
+            <li><div class="bullet">✓</div>Reduce memory wastage</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <div class="card-icon icon-cyan">🧩</div>
+          <div class="card-title">What is Paging?</div>
+          <ul class="goal-list">
+            <li><div class="bullet">→</div>Divides process into fixed-size pages</li>
+            <li><div class="bullet">→</div>Physical memory split into frames</li>
+            <li><div class="bullet">→</div>Pages mapped anywhere in RAM</li>
+            <li><div class="bullet">→</div>Tracked via a Page Table</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <div class="card-icon icon-green">⚡</div>
+          <div class="card-title">Why Paging?</div>
+          <ul class="goal-list">
+            <li><div class="bullet">→</div>No external fragmentation</li>
+            <li><div class="bullet">→</div>Enables virtual memory</li>
+            <li><div class="bullet">→</div>Easy process swapping</li>
+            <li><div class="bullet">→</div>Efficient RAM utilization</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 3 — PAGING ════════ -->
+  <div class="slide" id="slide-3">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="slide-number">03 / Core Concept</div>
+        <h2 class="slide-title">Paging — In Depth</h2>
+        <p class="slide-sub">Fixed-size memory blocks for efficient allocation</p>
+      </div>
+
+      <div class="paging-grid">
+        <div>
+          <div class="def-box" style="margin-bottom:18px">
+            Paging divides a <strong>process into pages</strong> and physical memory into equal-sized <strong>frames</strong>. Pages are mapped to frames <em>anywhere</em> in RAM using a <strong>Page Table</strong>. Page Size = Frame Size.
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px">
+            <div class="card-title" style="margin-bottom:14px">📊 Process Pages → Memory Frames</div>
+            <div class="page-visual">
+              <div class="page-box pg-1">Page 0<br/><small>Frame 3</small></div>
+              <div class="page-box pg-2">Page 1<br/><small>Frame 7</small></div>
+              <div class="page-box pg-3">Page 2<br/><small>Frame 1</small></div>
+              <div class="page-box pg-4">Page 3<br/><small>Frame 9</small></div>
+              <div class="page-box pg-5">Page 4<br/><small>Frame 2</small></div>
+              <div class="page-box pg-6">Page 5<br/><small>Frame 5</small></div>
+            </div>
+            <p style="font-size:12px;color:var(--muted);margin-top:10px">Pages are non-contiguous in memory — no external fragmentation!</p>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="info-card" style="flex:1">
+            <div class="card-icon icon-green">✅</div>
+            <div class="card-title">Advantages</div>
+            <div class="adv-dis-grid">
+              <div class="adv-item">✅ Efficient memory usage</div>
+              <div class="adv-item">✅ Supports Virtual Memory</div>
+              <div class="adv-item">✅ No External Fragmentation</div>
+              <div class="adv-item">✅ Easy process swapping</div>
+            </div>
+          </div>
+          <div class="info-card">
+            <div class="card-icon icon-pink">❌</div>
+            <div class="card-title">Disadvantages</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div class="dis-item">❌ Internal Fragmentation possible</div>
+              <div class="dis-item">❌ Overhead of maintaining Page Tables</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 4 — VIRTUAL MEMORY & CONCLUSION ════════ -->
+  <div class="slide" id="slide-4">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="slide-number">04 / Virtual Memory &amp; Summary</div>
+        <h2 class="slide-title">Virtual Memory &amp; Conclusion</h2>
+      </div>
+
+      <div class="vm-card">
+        <div class="vm-title"><span>💾</span> Virtual Memory</div>
+        <p style="font-size:13.5px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+          Virtual Memory allows programs <strong>larger than RAM</strong> to execute by using disk storage as an extension of RAM. Paging is the key mechanism that makes virtual memory possible.
+        </p>
+        <div class="vm-diagram">
+          <div class="vm-block vm-ram">🧠<br/>RAM<br/><small>Physical</small></div>
+          <div class="vm-block vm-swap">⇄</div>
+          <div class="vm-block vm-disk">💽<br/>Disk<br/><small>Virtual Ext.</small></div>
+          <div style="flex:2;font-size:12px;color:var(--muted);padding-left:12px;line-height:1.9">
+            <strong style="color:var(--accent2)">Benefits of Virtual Memory:</strong><br/>
+            ✅ Run programs larger than RAM<br/>
+            ✅ Better multitasking<br/>
+            ✅ Efficient memory management
+          </div>
+        </div>
+      </div>
+
+      <div class="conc-grid">
+        <div class="conc-item">
+          <div class="conc-num">1</div>
+          <div class="conc-text">Paging is a fundamental memory management technique in modern operating systems.</div>
+        </div>
+        <div class="conc-item">
+          <div class="conc-num">2</div>
+          <div class="conc-text">A process is divided into <strong style="color:var(--accent1)">fixed-size pages</strong>; memory is divided into equal-size <strong style="color:var(--accent1)">frames</strong>.</div>
+        </div>
+        <div class="conc-item">
+          <div class="conc-num">3</div>
+          <div class="conc-text">A <strong style="color:var(--accent2)">Page Table</strong> maps each page to a frame, allowing non-contiguous allocation.</div>
+        </div>
+        <div class="conc-item">
+          <div class="conc-num">4</div>
+          <div class="conc-text">Paging enables <strong style="color:var(--accent2)">Virtual Memory</strong>, improving system performance and memory utilization.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 5 — ADDRESS TRANSLATION DIAGRAM ════════ -->
+  <div class="slide" id="slide-5">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="slide-number">05 / Diagram</div>
+        <h2 class="slide-title">Address Translation in Paging</h2>
+        <p class="slide-sub">How a logical address is translated to a physical address</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:28px;align-items:start">
+
+        <!-- Left: explanation cards -->
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="info-card">
+            <div class="card-icon icon-purple">🔢</div>
+            <div class="card-title">Logical Address</div>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7">Generated by the CPU. Split into two parts: <strong style="color:var(--accent1)">Page Number (p)</strong> and <strong style="color:var(--accent2)">Page Offset (d)</strong>.</p>
+          </div>
+          <div class="info-card">
+            <div class="card-icon icon-cyan">📋</div>
+            <div class="card-title">Page Table Lookup</div>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7">Page number <strong style="color:var(--accent1)">p</strong> indexes into the Page Table to fetch the <strong style="color:var(--accent2)">Frame Number (f)</strong>.</p>
+          </div>
+          <div class="info-card">
+            <div class="card-icon icon-green">📍</div>
+            <div class="card-title">Physical Address</div>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7">Physical address = <strong style="color:var(--green)">Frame Number × Frame Size + Offset (d)</strong>. This points to the exact memory location.</p>
+          </div>
+        </div>
+
+        <!-- Right: SVG diagram -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px">
+          <div class="card-title" style="margin-bottom:18px;text-align:center">📊 Address Translation Flowchart</div>
+          <svg viewBox="0 0 420 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-height:420px;display:block;margin:0 auto" font-family="Inter,sans-serif">
+
+            <!-- ── CPU box ── -->
+            <rect x="155" y="10" width="110" height="44" rx="10" fill="rgba(99,102,241,0.2)" stroke="rgba(99,102,241,0.7)" stroke-width="1.5"/>
+            <text x="210" y="37" text-anchor="middle" fill="#a5b4fc" font-size="15" font-weight="700">CPU</text>
+
+            <!-- arrow CPU → Logical -->
+            <line x1="210" y1="54" x2="210" y2="82" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <!-- ── Logical Address box ── -->
+            <rect x="100" y="82" width="220" height="50" rx="10" fill="rgba(34,211,238,0.12)" stroke="rgba(34,211,238,0.5)" stroke-width="1.5"/>
+            <text x="148" y="101" text-anchor="middle" fill="#94a3b8" font-size="10">Logical Address</text>
+            <!-- split inside -->
+            <line x1="210" y1="82" x2="210" y2="132" stroke="rgba(34,211,238,0.4)" stroke-width="1"/>
+            <text x="160" y="120" text-anchor="middle" fill="#22d3ee" font-size="14" font-weight="700">p</text>
+            <text x="260" y="120" text-anchor="middle" fill="#f472b6" font-size="14" font-weight="700">d</text>
+            <text x="148" y="112" text-anchor="middle" fill="#6366f1" font-size="9">(page no.)</text>
+            <text x="268" y="112" text-anchor="middle" fill="#f472b6" font-size="9">(offset)</text>
+
+            <!-- arrow p → Page Table -->
+            <line x1="160" y1="132" x2="160" y2="160" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <!-- ── Page Table ── -->
+            <rect x="90" y="160" width="140" height="90" rx="10" fill="rgba(99,102,241,0.15)" stroke="rgba(99,102,241,0.5)" stroke-width="1.5"/>
+            <text x="160" y="180" text-anchor="middle" fill="#a5b4fc" font-size="11" font-weight="700">Page Table</text>
+            <!-- rows -->
+            <line x1="90" y1="190" x2="230" y2="190" stroke="rgba(99,102,241,0.3)" stroke-width="1"/>
+            <line x1="155" y1="190" x2="155" y2="250" stroke="rgba(99,102,241,0.3)" stroke-width="1"/>
+            <text x="123" y="206" text-anchor="middle" fill="#94a3b8" font-size="9">Page No.</text>
+            <text x="193" y="206" text-anchor="middle" fill="#94a3b8" font-size="9">Frame No.</text>
+            <line x1="90" y1="210" x2="230" y2="210" stroke="rgba(99,102,241,0.2)" stroke-width="1"/>
+            <text x="123" y="224" text-anchor="middle" fill="#22d3ee" font-size="10">0</text>
+            <text x="193" y="224" text-anchor="middle" fill="#34d399" font-size="10">3</text>
+            <line x1="90" y1="228" x2="230" y2="228" stroke="rgba(99,102,241,0.2)" stroke-width="1"/>
+            <text x="123" y="242" text-anchor="middle" fill="#22d3ee" font-size="10">1</text>
+            <text x="193" y="242" text-anchor="middle" fill="#34d399" font-size="10">7</text>
+
+            <!-- arrow Page Table → + circle (frame no.) -->
+            <line x1="230" y1="205" x2="298" y2="310" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+            <text x="270" y="265" text-anchor="middle" fill="#34d399" font-size="9">frame no. (f)</text>
+
+            <!-- arrow d → + circle -->
+            <line x1="280" y1="132" x2="310" y2="298" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arr)"/>
+            <text x="308" y="220" text-anchor="start" fill="#f472b6" font-size="9">offset (d)</text>
+
+            <!-- ── + circle ── -->
+            <circle cx="310" cy="318" r="22" fill="rgba(52,211,153,0.2)" stroke="#34d399" stroke-width="2"/>
+            <text x="310" y="325" text-anchor="middle" fill="#34d399" font-size="20" font-weight="700">+</text>
+
+            <!-- arrow + → Physical -->
+            <line x1="310" y1="340" x2="310" y2="370" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <!-- ── Physical Address Space ── -->
+            <rect x="170" y="370" width="280" height="70" rx="10" fill="rgba(34,211,238,0.12)" stroke="rgba(34,211,238,0.5)" stroke-width="1.5"/>
+            <text x="310" y="392" text-anchor="middle" fill="#94a3b8" font-size="10">Physical Address Space</text>
+            <line x1="275" y1="370" x2="275" y2="440" stroke="rgba(34,211,238,0.3)" stroke-width="1"/>
+            <text x="225" y="415" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="600">Base Add.</text>
+            <text x="355" y="415" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="600">Base Add.+Limit</text>
+
+            <!-- label: Physical Address -->
+            <text x="310" y="458" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">✅ Physical Address</text>
+
+            <!-- ── Arrow marker defs ── -->
+            <defs>
+              <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8"/>
+              </marker>
+            </defs>
+
+            <!-- Step labels -->
+            <text x="20" y="38" fill="rgba(99,102,241,0.7)" font-size="9">STEP 1</text>
+            <text x="20" y="112" fill="rgba(34,211,238,0.7)" font-size="9">STEP 2</text>
+            <text x="20" y="205" fill="rgba(99,102,241,0.7)" font-size="9">STEP 3</text>
+            <text x="20" y="325" fill="rgba(52,211,153,0.7)" font-size="9">STEP 4</text>
+            <text x="20" y="410" fill="rgba(34,211,238,0.7)" font-size="9">STEP 5</text>
+          </svg>
+        </div>
+      </div>
+      <div class="thank-you" style="margin-top:20px">
+        <h2>Thank You! 🎓</h2>
+        <p>BCA Semester II &nbsp;·&nbsp; Operating Systems &nbsp;·&nbsp; Paging in OS</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end deck -->
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="nav-btn" id="prevBtn" title="Previous (←)">&#8592;</button>
+  <div class="dot-row" id="dotRow"></div>
+  <div class="slide-counter" id="counter">1 / 5</div>
+  <button class="nav-btn" id="nextBtn" title="Next (→)">&#8594;</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotRow = document.getElementById('dotRow');
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+  let current = 0, animating = false;
+
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => goTo(i));
+    dotRow.appendChild(d);
+  });
+
+  function updateUI() {
+    document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current));
+    counter.textContent = `${current + 1} / ${slides.length}`;
+    progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+  }
+
+  function goTo(idx) {
+    if (animating || idx === current) return;
+    animating = true;
+    const prev = current;
+    current = idx;
+    slides[prev].classList.remove('active');
+    slides[prev].classList.add('exit');
+    setTimeout(() => slides[prev].classList.remove('exit'), 550);
+    slides[current].classList.add('active');
+    updateUI();
+    setTimeout(() => { animating = false; }, 560);
+  }
+
+  document.getElementById('prevBtn').addEventListener('click', () => goTo(Math.max(0, current - 1)));
+  document.getElementById('nextBtn').addEventListener('click', () => goTo(Math.min(slides.length - 1, current + 1)));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(Math.min(slides.length - 1, current + 1));
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(Math.max(0, current - 1));
+  });
+
+  let touchX = 0;
+  document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 50) dx < 0 ? goTo(Math.min(slides.length - 1, current + 1)) : goTo(Math.max(0, current - 1));
+  });
+
+  updateUI();
+</script>
+</body>
+</html>
