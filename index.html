@@ -211,6 +211,7 @@
     }
     .chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+    @keyframes spin  { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
 
     /* ── SLIDE 2 ── */
     .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
@@ -576,10 +577,43 @@
           </svg>
         </div>
       </div>
-      <div class="thank-you" style="margin-top:20px">
-        <h2>Thank You! 🎓</h2>
-        <p>BCA Semester II &nbsp;·&nbsp; Operating Systems &nbsp;·&nbsp; Paging in OS</p>
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 6 — THANK YOU ════════ -->
+  <div class="slide" id="slide-6">
+    <div class="slide-inner" style="text-align:center">
+
+      <!-- Animated rings -->
+      <div style="position:relative;width:160px;height:160px;margin:0 auto 36px;">
+        <div style="position:absolute;inset:0;border-radius:50%;border:2px solid rgba(99,102,241,0.3);animation:spin 8s linear infinite;"></div>
+        <div style="position:absolute;inset:12px;border-radius:50%;border:2px solid rgba(34,211,238,0.3);animation:spin 5s linear infinite reverse;"></div>
+        <div style="position:absolute;inset:24px;border-radius:50%;border:2px solid rgba(244,114,182,0.3);animation:spin 3s linear infinite;"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;">🎓</div>
       </div>
+
+      <h1 style="font-size:clamp(42px,6vw,80px);font-weight:800;line-height:1.1;background:linear-gradient(135deg,#fff 20%,#22d3ee 55%,#6366f1 85%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px;">Thank You!</h1>
+
+      <p style="font-size:18px;color:var(--muted);margin-bottom:36px;line-height:1.8;">We hope this presentation gave you a clear understanding of<br/><strong style="color:var(--text);">Paging in Operating Systems</strong>.</p>
+
+      <!-- Presenters -->
+      <div style="display:inline-flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-bottom:36px;">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px 36px;">
+          <div style="font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">Presented By</div>
+          <div style="font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--accent1),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Sunaina &amp; Zainab</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:6px;">BCA Semester II &nbsp;&middot;&nbsp; Operating Systems</div>
+        </div>
+      </div>
+
+      <!-- Topic chips -->
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <div class="chip"><div class="chip-dot"></div>Memory Management</div>
+        <div class="chip"><div class="chip-dot"></div>Paging</div>
+        <div class="chip"><div class="chip-dot"></div>Page Tables</div>
+        <div class="chip"><div class="chip-dot"></div>Virtual Memory</div>
+        <div class="chip"><div class="chip-dot"></div>Address Translation</div>
+      </div>
+
     </div>
   </div>
 
@@ -589,7 +623,7 @@
 <div class="nav">
   <button class="nav-btn" id="prevBtn" title="Previous (←)">&#8592;</button>
   <div class="dot-row" id="dotRow"></div>
-  <div class="slide-counter" id="counter">1 / 5</div>
+  <div class="slide-counter" id="counter">1 / 6</div>
   <button class="nav-btn" id="nextBtn" title="Next (→)">&#8594;</button>
 </div>
 
