@@ -279,8 +279,10 @@
     .thank-you p { color: var(--muted); font-size: 14px; margin-top: 8px; }
 
     @media (max-width: 780px) {
-      .slide { padding: 24px 20px 90px; }
-      .paging-grid, .three-col, .adv-dis-grid, .conc-grid { grid-template-columns: 1fr; }
+      .slide { padding: 40px 20px 100px; justify-content: flex-start; overflow-y: auto; overflow-x: hidden; }
+      .paging-grid, .three-col, .adv-dis-grid, .conc-grid, .responsive-grid { grid-template-columns: 1fr !important; }
+      .presenter-card { padding: 20px 24px; }
+      .title-main { font-size: 36px; }
     }
   </style>
 </head>
@@ -535,7 +537,7 @@
         <p class="slide-sub">How a logical address is translated to a physical address</p>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:28px;align-items:start">
+      <div class="responsive-grid" style="display:grid;grid-template-columns:1fr 1.6fr;gap:28px;align-items:start">
 
         <!-- Left: explanation cards -->
         <div style="display:flex;flex-direction:column;gap:14px">
@@ -649,7 +651,7 @@
         <p class="slide-sub">How the OS executes a program using paging</p>
       </div>
 
-      <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:22px;">
+      <div class="responsive-grid" style="display:grid;grid-template-columns:1.1fr 1fr;gap:22px;">
 
         <!-- Steps -->
         <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;position:relative;overflow:hidden;">
@@ -719,7 +721,7 @@
         <p class="slide-sub">Types of page tables and the concept of virtual memory</p>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div class="responsive-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
 
         <!-- Left: Page Table Types -->
         <div style="display:flex;flex-direction:column;gap:12px;">
