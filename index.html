@@ -284,6 +284,23 @@
       .presenter-card { padding: 20px 24px; }
       .title-main { font-size: 36px; }
     }
+
+    @media print {
+      @page { size: 1600px 900px; margin: 0; }
+      body { background: var(--bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .nav, .progress-bar, .bg-grid, .orb, .hint { display: none !important; }
+      .deck { height: auto !important; position: static !important; }
+      .slide {
+        position: relative !important;
+        opacity: 1 !important;
+        transform: none !important;
+        width: 1600px !important;
+        height: 900px !important;
+        page-break-after: always;
+        break-after: page;
+        padding: 40px 60px !important;
+      }
+    }
   </style>
 </head>
 <body>
